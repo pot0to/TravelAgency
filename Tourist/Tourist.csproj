@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
         <Version>1.2.15</Version>
@@ -52,6 +52,12 @@
     <ItemGroup>
         <PackageReference Include="DalamudPackager" Version="11.0.0" />
         <PackageReference Include="FFXIVWeather.Lumina" Version="2.2.1" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <None Update="Tourist.yaml">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </None>
     </ItemGroup>
 
 </Project>

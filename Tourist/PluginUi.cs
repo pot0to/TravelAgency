@@ -128,6 +128,11 @@ namespace Tourist {
                 ImGui.EndMenuBar();
             }
 
+            if (ImGui.Button($"Visit All Sightseeing"))
+            {
+                this.Plugin.GameGui.VisitAllSightseeing();
+            }
+
             if (ImGui.BeginChild("tourist-adventures", new Vector2(0, 0))) {
                 const uint first = 2162688;
 

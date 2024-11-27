@@ -190,5 +190,10 @@ namespace Tourist {
 
             return readable.ToString();
         }
+
+        public static void VisitAllSightseeing(this IGameGui gameGui)
+        {
+
+        }
     }
 }
