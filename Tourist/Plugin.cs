@@ -3,68 +3,52 @@ using Dalamud.IoC;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using FFXIVWeather.Lumina;
+using ECommons;
+using ECommons.DalamudServices;
+using ECommons.SimpleGui;
+using System;
 
 namespace Tourist {
     // ReSharper disable once ClassNeverInstantiated.Global
-    public class Plugin : IDalamudPlugin {
+    public class Plugin : IDalamudPlugin
+    {
         public static string Name => "Tourist";
 
-        [PluginService]
-        internal static IPluginLog Log { get; private set; } = null!;
+        public Plugin(IDalamudPluginInterface pluginInterface)
+        {
+            pluginInterface.Create<Service>();
 
-        [PluginService]
-        internal IDalamudPluginInterface Interface { get; init; }
+            ECommonsMain.Init(pluginInterface, this);
 
-        [PluginService]
-        internal IClientState ClientState { get; init; } = null!;
+            Service.Plugin = this;
+            Service.TaskManager = new();
+            Service.TaskManager.DefaultConfiguration.AbortOnTimeout = true;
+            Service.TaskManager.DefaultConfiguration.TimeLimitMS = 10000; // 10s
+            Service.Config = Service.Interface.GetPluginConfig() as Configuration ?? new Configuration();
+            Service.Config.Initialise(this);
+            //Service.Navmesh = new();
+            NavmeshIPC.Init();
+            Service.Lifestream = new();
+            Service.GameFunctions = new();
+            Service.ChatFunctions = new(Service.SigScanner, Service.DataManager, Service.GameFunctions);
+            Service.Markers = new();
+            Service.Weather = new FFXIVWeatherLuminaService(Service.DataManager.GameData);
 
-        [PluginService]
-        internal ICommandManager CommandManager { get; init; } = null!;
+            Service.Interface = pluginInterface;
+            Service.Ui = new PluginUi(this);
+            Service.Commands = new Commands(this);
 
-        [PluginService]
-        internal IDataManager DataManager { get; init; } = null!;
-
-        [PluginService]
-        internal IFramework Framework { get; init; } = null!;
-
-        [PluginService]
-        internal IGameGui GameGui { get; init; } = null!;
-
-        [PluginService]
-        internal ISigScanner SigScanner { get; init; } = null!;
-
-        [PluginService]
-        internal IGameInteropProvider GameInteropProvider { get; init; } = null!;
-
-        internal Configuration Config { get; }
-        internal PluginUi Ui { get; }
-        internal FFXIVWeatherLuminaService Weather { get; }
-        internal GameFunctions Functions { get; }
-        private Commands Commands { get; }
-        internal Markers Markers { get; }
-
-        public Plugin(IDalamudPluginInterface pluginInterface) {
-            this.Interface = pluginInterface;
-
-            this.Config = this.Interface.GetPluginConfig() as Configuration ?? new Configuration();
-            this.Config.Initialise(this);
-
-            this.Weather = new FFXIVWeatherLuminaService(this.DataManager.GameData);
-
-            this.Functions = new GameFunctions(this);
-
-            this.Markers = new Markers(this);
-
-            this.Ui = new PluginUi(this);
-
-            this.Commands = new Commands(this);
+            Service.VisitAll = new();
+            Svc.Framework.Update += Service.VisitAll.OnUpdate;
         }
 
-        public void Dispose() {
-            this.Commands.Dispose();
-            this.Ui.Dispose();
-            this.Markers.Dispose();
-            this.Functions.Dispose();
+        public void Dispose()
+        {
+            Service.Commands.Dispose();
+            Service.Ui.Dispose();
+            Service.Markers.Dispose();
+            Service.GameFunctions.Dispose();
+            ECommonsMain.Dispose();
         }
     }
 }

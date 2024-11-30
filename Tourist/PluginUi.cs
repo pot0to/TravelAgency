@@ -1,7 +1,10 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
+using Dalamud.Interface.Colors;
 using Dalamud.Utility;
+using ECommons.DalamudServices;
 using ImGuiNET;
 using Lumina.Excel.Sheets;
 
@@ -19,13 +22,13 @@ namespace Tourist {
         public PluginUi(Plugin plugin) {
             this.Plugin = plugin;
 
-            this.Plugin.Interface.UiBuilder.Draw += this.Draw;
-            this.Plugin.Interface.UiBuilder.OpenConfigUi += this.OpenConfig;
+            Service.Interface.UiBuilder.Draw += this.Draw;
+            Service.Interface.UiBuilder.OpenConfigUi += this.OpenConfig;
         }
 
         public void Dispose() {
-            this.Plugin.Interface.UiBuilder.OpenConfigUi -= this.OpenConfig;
-            this.Plugin.Interface.UiBuilder.Draw -= this.Draw;
+            Service.Interface.UiBuilder.OpenConfigUi -= this.OpenConfig;
+            Service.Interface.UiBuilder.Draw -= this.Draw;
         }
 
         private void OpenConfig() {
@@ -48,65 +51,65 @@ namespace Tourist {
                 if (ImGui.BeginMenu("Options")) {
                     if (ImGui.BeginMenu("Sort by")) {
                         foreach (var mode in (SortMode[]) Enum.GetValues(typeof(SortMode))) {
-                            if (!ImGui.MenuItem($"{mode}", null, this.Plugin.Config.SortMode == mode)) {
+                            if (!ImGui.MenuItem($"{mode}", null, Service.Config.SortMode == mode)) {
                                 continue;
                             }
 
-                            this.Plugin.Config.SortMode = mode;
-                            this.Plugin.Config.Save();
+                            Service.Config.SortMode = mode;
+                            Service.Config.Save();
                         }
 
                         ImGui.EndMenu();
                     }
 
                     if (ImGui.BeginMenu("Times")) {
-                        var showTimeUntil = this.Plugin.Config.ShowTimeUntilAvailable;
+                        var showTimeUntil = Service.Config.ShowTimeUntilAvailable;
                         if (ImGui.MenuItem("Show time until available", null, ref showTimeUntil)) {
-                            this.Plugin.Config.ShowTimeUntilAvailable = showTimeUntil;
-                            this.Plugin.Config.Save();
+                            Service.Config.ShowTimeUntilAvailable = showTimeUntil;
+                            Service.Config.Save();
                         }
 
-                        var showTimeLeft = this.Plugin.Config.ShowTimeLeft;
+                        var showTimeLeft = Service.Config.ShowTimeLeft;
                         if (ImGui.MenuItem("Show time left", null, ref showTimeLeft)) {
-                            this.Plugin.Config.ShowTimeLeft = showTimeLeft;
-                            this.Plugin.Config.Save();
+                            Service.Config.ShowTimeLeft = showTimeLeft;
+                            Service.Config.Save();
                         }
 
                         ImGui.EndMenu();
                     }
 
                     if (ImGui.BeginMenu("Visibility")) {
-                        var showFinished = this.Plugin.Config.ShowFinished;
+                        var showFinished = Service.Config.ShowFinished;
                         if (ImGui.MenuItem("Show finished", null, ref showFinished)) {
-                            this.Plugin.Config.ShowFinished = showFinished;
-                            this.Plugin.Config.Save();
+                            Service.Config.ShowFinished = showFinished;
+                            Service.Config.Save();
                         }
 
-                        var showUnavailable = this.Plugin.Config.ShowUnavailable;
+                        var showUnavailable = Service.Config.ShowUnavailable;
                         if (ImGui.MenuItem("Show unavailable", null, ref showUnavailable)) {
-                            this.Plugin.Config.ShowUnavailable = showUnavailable;
-                            this.Plugin.Config.Save();
+                            Service.Config.ShowUnavailable = showUnavailable;
+                            Service.Config.Save();
                         }
 
-                        var onlyCurrent = this.Plugin.Config.OnlyShowCurrentZone;
+                        var onlyCurrent = Service.Config.OnlyShowCurrentZone;
                         if (ImGui.MenuItem("Show current zone only", null, ref onlyCurrent)) {
-                            this.Plugin.Config.OnlyShowCurrentZone = onlyCurrent;
-                            this.Plugin.Config.Save();
+                            Service.Config.OnlyShowCurrentZone = onlyCurrent;
+                            Service.Config.Save();
                         }
 
                         ImGui.EndMenu();
                     }
 
-                    var showArrVistas = this.Plugin.Config.ShowArrVistas;
+                    var showArrVistas = Service.Config.ShowArrVistas;
                     if (ImGui.MenuItem("Add markers for ARR vistas", null, ref showArrVistas)) {
-                        this.Plugin.Config.ShowArrVistas = showArrVistas;
-                        this.Plugin.Config.Save();
+                        Service.Config.ShowArrVistas = showArrVistas;
+                        Service.Config.Save();
 
                         if (showArrVistas) {
-                            var territory = this.Plugin.ClientState.TerritoryType;
-                            this.Plugin.Markers.SpawnVfxForCurrentZone(territory);
+                            var territory = Svc.ClientState.TerritoryType;
+                            Service.Markers.SpawnVfxForCurrentZone(territory);
                         } else {
-                            this.Plugin.Markers.RemoveAllVfx();
+                            Service.Markers.RemoveAllVfx();
                         }
                     }
 
@@ -128,43 +131,51 @@ namespace Tourist {
                 ImGui.EndMenuBar();
             }
 
-            if (ImGui.Button($"Visit All Sightseeing"))
-            {
-                this.Plugin.GameGui.VisitAllSightseeing();
-            }
-
-            if (ImGui.BeginChild("tourist-adventures", new Vector2(0, 0))) {
-                const uint first = 2162688;
-
-                var adventures = this.Plugin.DataManager.GetExcelSheet<Adventure>()!
+            const uint first = 2162688;
+            var adventures = Service.DataManager.GetExcelSheet<Adventure>()!
                     .Select(adventure => (idx: adventure.RowId - first, adventure))
-                    .OrderBy(entry => this.Plugin.Config.SortMode switch {
+                    .OrderBy(entry => Service.Config.SortMode switch {
                         SortMode.Number => entry.idx,
                         SortMode.Zone => entry.adventure.Level.Value!.Map.RowId,
                         _ => throw new ArgumentOutOfRangeException(),
                     });
 
-                Map? lastMap = null;
+            ImGui.PushStyleColor(ImGuiCol.Button, Service.Config.Active ? ImGuiColors.HealerGreen : ImGuiColors.DalamudGrey3);
+            ImGui.Button($"Visit All Sightseeing###Active");
+            if (ImGui.IsItemClicked())
+            {
+                Service.Config.Active ^= true;
+                if (!Service.Config.Active && (NavmeshIPC.PathfindInProgress() || NavmeshIPC.PathIsRunning()))
+                {
+                    NavmeshIPC.PathStop();
+                }
+            }
+                
+            ImGui.PopStyleColor();
+
+            if (ImGui.BeginChild("tourist-adventures", new Vector2(0, 0))) {
+
+                Lumina.Excel.Sheets.Map? lastMap = null;
                 var lastTree = false;
 
                 foreach (var (idx, adventure) in adventures) {
-                    if (this.Plugin.Config.OnlyShowCurrentZone && adventure.Level.Value!.Territory.RowId != this.Plugin.ClientState.TerritoryType) {
+                    if (Service.Config.OnlyShowCurrentZone && adventure.Level.Value!.Territory.RowId != Svc.ClientState.TerritoryType) {
                         continue;
                     }
 
-                    var has = this.Plugin.Functions.HasVistaUnlocked((short) idx);
+                    var has = Service.GameFunctions.HasVistaUnlocked((short) idx);
 
-                    if (!this.Plugin.Config.ShowFinished && has) {
+                    if (!Service.Config.ShowFinished && has) {
                         continue;
                     }
 
-                    var available = adventure.Available(this.Plugin.Weather);
+                    var available = adventure.Available(Service.Weather);
 
-                    if (!this.Plugin.Config.ShowUnavailable && !available) {
+                    if (!Service.Config.ShowUnavailable && !available) {
                         continue;
                     }
 
-                    if (this.Plugin.Config.SortMode == SortMode.Zone) {
+                    if (Service.Config.SortMode == SortMode.Zone) {
                         var map = adventure.Level.Value!.Map.Value;
                         if (lastMap?.Id != map.Id) {
                             if (lastMap != null) {
@@ -182,17 +193,17 @@ namespace Tourist {
                         }
                     }
 
-                    var availability = adventure.NextAvailable(this.Plugin.Weather);
+                    var availability = adventure.NextAvailable(Service.Weather);
 
                     DateTimeOffset? countdown = null;
                     if (has) {
                         ImGui.PushStyleColor(ImGuiCol.Text, new Vector4(0.8f, 0.8f, 0.8f, 1f));
                     } else if (available) {
                         ImGui.PushStyleColor(ImGuiCol.Text, new Vector4(0f, 1f, 0f, 1f));
-                        if (this.Plugin.Config.ShowTimeLeft) {
+                        if (Service.Config.ShowTimeLeft) {
                             countdown = availability?.end;
                         }
-                    } else if (availability != null && this.Plugin.Config.ShowTimeUntilAvailable) {
+                    } else if (availability != null && Service.Config.ShowTimeUntilAvailable) {
                         countdown = availability.Value.start;
                     }
 
@@ -237,7 +248,7 @@ namespace Tourist {
                     if (Weathers.All.TryGetValue(adventure.RowId, out var weathers)) {
                         var weatherString = string.Join(", ", weathers
                             .OrderBy(id => id)
-                            .Select(id => this.Plugin.DataManager.GetExcelSheet<Weather>()!.GetRow(id))
+                            .Select(id => Service.DataManager.GetExcelSheet<Weather>()!.GetRow(id))
                             //.Where(weather => weather != null)
                             .Cast<Weather>()
                             .Select(weather => weather.Name));
@@ -249,7 +260,7 @@ namespace Tourist {
                     ImGui.Columns();
 
                     if (ImGui.Button($"Open map##{adventure.RowId}")) {
-                        this.Plugin.GameGui.OpenMapLocation(adventure);
+                        Service.GameGui.OpenMapLocation(adventure);
                     }
                 }
 

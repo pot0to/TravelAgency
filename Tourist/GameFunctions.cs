@@ -1,7 +1,12 @@
 ﻿using System;
 using System.Numerics;
 using System.Runtime.InteropServices;
+using Dalamud.Game.ClientState.Objects.Enums;
+using Dalamud.Game.ClientState.Objects.Types;
 using Dalamud.Hooking;
+using Dalamud.Plugin.Services;
+using ECommons.DalamudServices;
+using Lumina;
 
 namespace Tourist {
     public class GameFunctions : IDisposable {
@@ -13,7 +18,6 @@ namespace Tourist {
 
         internal delegate nint RemoveVfxDelegate(nint vfx);
 
-        private Plugin Plugin { get; }
         private nint SightseeingMaskPointer { get; }
 
         private CreateVfxDelegate CreateVfx { get; }
@@ -21,23 +25,22 @@ namespace Tourist {
         internal RemoveVfxDelegate RemoveVfx { get; }
         private Hook<VistaUnlockedDelegate> VistaUnlockedHook { get; }
 
-        public GameFunctions(Plugin plugin) {
-            this.Plugin = plugin;
+        public GameFunctions() {
 
-            var vistaUnlockedPtr = this.Plugin.SigScanner.ScanText("E8 ?? ?? ?? ?? E9 ?? ?? ?? ?? 8B 4C 24 70 E8");
-            this.VistaUnlockedHook = this.Plugin.GameInteropProvider.HookFromAddress<VistaUnlockedDelegate>(vistaUnlockedPtr, this.OnVistaUnlock);
+            var vistaUnlockedPtr = Service.SigScanner.ScanText("E8 ?? ?? ?? ?? E9 ?? ?? ?? ?? 8B 4C 24 70 E8");
+            this.VistaUnlockedHook = Service.GameInteropProvider.HookFromAddress<VistaUnlockedDelegate>(vistaUnlockedPtr, this.OnVistaUnlock);
             this.VistaUnlockedHook.Enable();
 
-            var maskPtr = this.Plugin.SigScanner.GetStaticAddressFromSig("44 8B F2 48 8D 0D ?? ?? ?? ?? 8B D7");
+            var maskPtr = Service.SigScanner.GetStaticAddressFromSig("44 8B F2 48 8D 0D ?? ?? ?? ?? 8B D7");
             this.SightseeingMaskPointer = maskPtr;
 
-            var createVfxPtr = this.Plugin.SigScanner.ScanText("E8 ?? ?? ?? ?? F3 0F 10 35 ?? ?? ?? ?? 48 89 43 08");
+            var createVfxPtr = Service.SigScanner.ScanText("E8 ?? ?? ?? ?? F3 0F 10 35 ?? ?? ?? ?? 48 89 43 08");
             this.CreateVfx = Marshal.GetDelegateForFunctionPointer<CreateVfxDelegate>(createVfxPtr);
 
-            var playVfxPtr = this.Plugin.SigScanner.ScanText("E8 ?? ?? ?? ?? 8B 4B 7C 85 C9");
+            var playVfxPtr = Service.SigScanner.ScanText("E8 ?? ?? ?? ?? 8B 4B 7C 85 C9");
             this.PlayVfxInternal = Marshal.GetDelegateForFunctionPointer<PlayVfxDelegate>(playVfxPtr);
 
-            var removeVfxPtr = this.Plugin.SigScanner.ScanText("40 53 48 83 EC 20 48 8B D9 48 8B 89 ?? ?? ?? ?? 48 85 C9 74 28 33 D2");
+            var removeVfxPtr = Service.SigScanner.ScanText("40 53 48 83 EC 20 48 8B D9 48 8B 89 ?? ?? ?? ?? 48 85 C9 74 28 33 D2");
             this.RemoveVfx = Marshal.GetDelegateForFunctionPointer<RemoveVfxDelegate>(removeVfxPtr);
         }
 
@@ -47,9 +50,9 @@ namespace Tourist {
 
         private nint OnVistaUnlock(ushort index, int a2, int a3) {
             try {
-                this.Plugin.Markers.RemoveVfx(index);
+                Service.Markers.RemoveVfx(index);
             } catch (Exception ex) {
-                Plugin.Log.Error(ex, "Exception in vista unlock");
+                Service.Log.Error(ex, "Exception in vista unlock");
             }
 
             return this.VistaUnlockedHook.Original(index, a2, a3);
@@ -89,6 +92,29 @@ namespace Tourist {
             var maskPart = Marshal.ReadByte(this.SightseeingMaskPointer + byteToCheck);
 
             return (maskPart & bitToCheck) != 0;
+        }
+
+        public IGameObject? FindObjectByDataId(uint dataId, ObjectKind? kind = null)
+        {
+            foreach (var gameObject in Svc.Objects)
+            {
+                if (gameObject.ObjectKind is ObjectKind.Player or ObjectKind.Companion or ObjectKind.MountType
+                    or ObjectKind.Retainer or ObjectKind.Housing)
+                    continue;
+
+                // multiple objects in the object table can share the same data id for gathering points; only one of those
+                // (at most) is visible
+                if (gameObject is { ObjectKind: ObjectKind.GatheringPoint, IsTargetable: false })
+                    continue;
+
+                if (gameObject.DataId == dataId && (kind == null || kind.Value == gameObject.ObjectKind))
+                {
+                    return gameObject;
+                }
+            }
+
+            //_logger.LogWarning("Could not find GameObject with dataId {DataId}", dataId);
+            return null;
         }
     }
 }

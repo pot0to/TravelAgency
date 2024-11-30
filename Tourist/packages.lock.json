@@ -38,6 +38,9 @@
         "type": "Transitive",
         "resolved": "8.0.7",
         "contentHash": "2yLweyqmpuuFSRo+I3sLHMxmnAgNcI537kBJiyv49U2ZEqo00jZcG8lrnD8uCiOJp9IklYyTZULtbsXoFVzsjQ=="
+      },
+      "ecommons": {
+        "type": "Project"
       }
     }
   }

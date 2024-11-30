@@ -15,13 +15,14 @@ namespace Tourist {
         public bool ShowTimeUntilAvailable { get; set; } = true;
         public bool ShowTimeLeft { get; set; } = true;
         public SortMode SortMode { get; set; } = SortMode.Number;
+        public bool Active { get; set; } = false;
 
         internal void Initialise(Plugin plugin) {
             this.Plugin = plugin;
         }
 
         internal void Save() {
-            this.Plugin.Interface.SavePluginConfig(this);
+            Service.Interface.SavePluginConfig(this);
         }
     }
 

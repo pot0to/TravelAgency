@@ -4,6 +4,10 @@ using System.Linq;
 using System.Text;
 using Dalamud.Game.Text.SeStringHandling.Payloads;
 using Dalamud.Plugin.Services;
+using ECommons.DalamudServices;
+using FFXIVClientStructs.FFXIV.Client.Game.Object;
+using FFXIVClientStructs.FFXIV.Client.Game.UI;
+using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVWeather.Lumina;
 using Lumina.Excel.Sheets;
 
@@ -189,11 +193,6 @@ namespace Tourist {
             readable.Append($"{span.Seconds:00}");
 
             return readable.ToString();
-        }
-
-        public static void VisitAllSightseeing(this IGameGui gameGui)
-        {
-
         }
     }
 }
