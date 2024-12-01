@@ -8,11 +8,11 @@ using ECommons.DalamudServices;
 using ECommons.SimpleGui;
 using System;
 
-namespace Tourist {
+namespace TravelAgency {
     // ReSharper disable once ClassNeverInstantiated.Global
     public class Plugin : IDalamudPlugin
     {
-        public static string Name => "Tourist";
+        public static string Name => "TravelAgency";
 
         public Plugin(IDalamudPluginInterface pluginInterface)
         {

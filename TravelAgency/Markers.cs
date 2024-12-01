@@ -6,7 +6,7 @@ using Dalamud.Plugin.Services;
 using ECommons.DalamudServices;
 using Lumina.Excel.Sheets;
 
-namespace Tourist {
+namespace TravelAgency {
     public class Markers : IDisposable {
         private const string MarkerPath = "bgcommon/world/common/vfx_for_live/eff/b0810_tnsk_y.avfx";
         private Dictionary<uint, nint> Spawned { get; } = new();

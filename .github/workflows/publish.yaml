@@ -1,12 +1,12 @@
-name: Build Tourist Plugin
+name: Build TravelAgency Plugin
 
 on:
   push
 
 env:
-  PLUGIN_REPO: pot0to/Tourist
-  PROJECT_PATH: Tourist
-  INTERNAL_NAME: Tourist
+  PLUGIN_REPO: pot0to/TravelAgency
+  PROJECT_PATH: TravelAgency
+  INTERNAL_NAME: TravelAgency
   IS_OFFICIAL: false
 
 jobs:

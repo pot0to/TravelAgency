@@ -1,7 +1,7 @@
 ﻿using System;
 using Dalamud.Configuration;
 
-namespace Tourist {
+namespace TravelAgency {
     [Serializable]
     public class Configuration : IPluginConfiguration {
         private Plugin Plugin { get; set; } = null!;

@@ -12,7 +12,7 @@ using Lumina.Extensions;
 using ECommons.DalamudServices;
 
 
-namespace Tourist
+namespace TravelAgency
 {
     public static class Map
     {

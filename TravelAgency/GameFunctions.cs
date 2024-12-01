@@ -8,7 +8,7 @@ using Dalamud.Plugin.Services;
 using ECommons.DalamudServices;
 using Lumina;
 
-namespace Tourist {
+namespace TravelAgency {
     public class GameFunctions : IDisposable {
         private delegate nint VistaUnlockedDelegate(ushort index, int a2, int a3);
 

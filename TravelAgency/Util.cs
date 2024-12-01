@@ -11,7 +11,7 @@ using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVWeather.Lumina;
 using Lumina.Excel.Sheets;
 
-namespace Tourist {
+namespace TravelAgency {
     public static class Util {
         private static Dictionary<uint, (DateTimeOffset start, DateTimeOffset end)> Availability { get; } = new();
 

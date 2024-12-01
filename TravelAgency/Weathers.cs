@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace Tourist {
+namespace TravelAgency {
     public static class Weathers {
         public static readonly IReadOnlyDictionary<uint, uint[]> All = new Dictionary<uint, uint[]> {
             [2162688] = new uint[] { 2, 1 },

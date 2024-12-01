@@ -1,7 +1,7 @@
 ﻿using ECommons.EzIpcManager;
 using System;
 
-namespace Tourist;
+namespace TravelAgency;
 
 #nullable disable
 public class LifestreamIPC

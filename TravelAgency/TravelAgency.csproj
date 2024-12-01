@@ -57,7 +57,7 @@
     </ItemGroup>
 
     <ItemGroup>
-      <None Update="Tourist.yaml">
+      <None Update="TravelAgency.yaml">
         <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       </None>
     </ItemGroup>

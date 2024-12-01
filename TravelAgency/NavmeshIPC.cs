@@ -6,7 +6,7 @@ using System.Collections.Generic;
 using System.Numerics;
 using System.Threading.Tasks;
 
-namespace Tourist;
+namespace TravelAgency;
 public class NavmeshIPC
 {
     internal static readonly string Name = "vnavmesh";

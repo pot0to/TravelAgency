@@ -8,7 +8,7 @@ using ECommons.DalamudServices;
 using ImGuiNET;
 using Lumina.Excel.Sheets;
 
-namespace Tourist {
+namespace TravelAgency {
     public class PluginUi : IDisposable {
         private Plugin Plugin { get; }
 
@@ -153,7 +153,7 @@ namespace Tourist {
                 
             ImGui.PopStyleColor();
 
-            if (ImGui.BeginChild("tourist-adventures", new Vector2(0, 0))) {
+            if (ImGui.BeginChild("travelagency-adventures", new Vector2(0, 0))) {
 
                 Lumina.Excel.Sheets.Map? lastMap = null;
                 var lastTree = false;

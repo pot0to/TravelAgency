@@ -14,7 +14,7 @@ using FFXIVClientStructs.FFXIV.Client.System.Memory;
 using FFXIVClientStructs.FFXIV.Client.System.String;
 using Lumina.Excel.Sheets;
 
-namespace Tourist;
+namespace TravelAgency;
 
 public unsafe class ChatFunctions
 {

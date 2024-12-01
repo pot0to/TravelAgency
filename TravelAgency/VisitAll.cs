@@ -18,7 +18,7 @@ using static Dalamud.Interface.Utility.Raii.ImRaii;
 using Dalamud.Game.ClientState.Conditions;
 using ImGuizmoNET;
 
-namespace Tourist
+namespace TravelAgency
 {
     public class VisitAll
     {

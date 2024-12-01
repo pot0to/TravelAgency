@@ -5,7 +5,7 @@ using FFXIVWeather.Lumina;
 using ECommons.Automation.NeoTaskManager;
 using Dalamud.Plugin;
 
-namespace Tourist
+namespace TravelAgency
 {
     public class Service
     {
