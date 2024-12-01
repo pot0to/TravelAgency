@@ -46,11 +46,3 @@ jobs:
         id: release
         with:
           files: ${{env.PROJECT_PATH}}/bin/Release/net8-windows/${{env.INTERNAL_NAME}}/*
-
-      - name: Trigger Plugin Repo Update
-        uses: peter-evans/repository-dispatch@v2
-        if: ${{ steps.release.conclusion == 'success' }}
-        with:
-          token: ${{secrets.PAT}}
-          repository: ${{env.PLUGIN_REPO}}
-          event-type: new-release
