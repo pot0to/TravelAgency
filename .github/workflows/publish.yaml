@@ -1,7 +1,8 @@
 name: Build TravelAgency Plugin
 
 on:
-  push
+  push:
+  workflow_dispatch:
 
 env:
   PLUGIN_REPO: pot0to/TravelAgency
