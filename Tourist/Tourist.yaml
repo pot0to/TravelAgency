@@ -6,5 +6,5 @@ description: |-
 
   - "Requires: vnavmesh, Lifestream"
 
-icon_url: icon.svg
+icon_url: icons/icon.svg
 repo_url: https://github.com/pot0to/Tourist
