@@ -15,25 +15,6 @@ namespace TravelAgency {
     public static class Util {
         private static Dictionary<uint, (DateTimeOffset start, DateTimeOffset end)> Availability { get; } = new();
 
-        public static void OpenMapLocation(this IGameGui gameGui, Adventure adventure) {
-            var loc = adventure.Level.Value;
-            var map = loc.Map.Value;
-            var terr = map.TerritoryType.Value;
-
-            //if (terr == null) {
-            //    return;
-            //}
-
-            var mapLink = new MapLinkPayload(
-                terr.RowId,
-                map!.RowId,
-                (int) (loc!.X * 1_000f),
-                (int) (loc.Z * 1_000f)
-            );
-
-            gameGui.OpenMapWithMapLink(mapLink);
-        }
-
         private static DateTimeOffset EorzeaTime(DateTimeOffset? at = null) {
             at ??= DateTimeOffset.UtcNow;
             return DateTimeOffset.FromUnixTimeMilliseconds(at.Value.ToUnixTimeMilliseconds() * 144 / 7);

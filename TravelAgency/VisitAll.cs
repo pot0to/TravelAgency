@@ -17,11 +17,128 @@ using FFXIVClientStructs.FFXIV.Client.Game;
 using static Dalamud.Interface.Utility.Raii.ImRaii;
 using Dalamud.Game.ClientState.Conditions;
 using ImGuizmoNET;
+using ECommons.Automation.LegacyTaskManager;
+using Dalamud.Game.Text;
 
 namespace TravelAgency
 {
+    public enum State
+    {
+        Ready,
+        GoToSightseeingPoint,
+        Move,
+        Mount,
+        Dismount,
+        Emote
+    }
+
     public class VisitAll
     {
+        const uint first = 2162688;
+        private List<Adventure> Adventures;
+        private int NextAdventureIndex;
+        private Adventure NextAdventure;
+
+        private State State;
+        
+        
+        private Lumina.Excel.Sheets.Aetheryte ClosestAetheryte;
+
+        public VisitAll()
+        {
+            Adventures = Service.DataManager.GetExcelSheet<Adventure>()!
+                    .Select(adventure => (idx: adventure.RowId - first, adventure))
+                    .Where(adventure => !Service.GameFunctions.HasVistaUnlocked((short)adventure.idx))
+                    .OrderBy(entry => Service.Config.SortMode switch
+                    {
+                        SortMode.Number => entry.idx,
+                        SortMode.Zone => entry.adventure.Level.Value!.Map.RowId,
+                        _ => throw new ArgumentOutOfRangeException(),
+                    })
+                    .Select(a => a.adventure)
+                    .ToList();
+            NextAdventureIndex = 0;
+        }
+
+        public unsafe void GoToSightseeingPoint()
+        {
+            var level = NextAdventure.Level.Value;
+            var map = level.Map.Value;
+            var territoryType = map.TerritoryType.Value;
+            var sightseeingPos = new Vector3(level.X, level.Y, level.Z);
+
+            var closestAetheryteToSightseeing = Map.FindClosestAetheryte(territoryType.RowId, sightseeingPos);
+            if (closestAetheryteToSightseeing == null)
+            {
+                Svc.Log.Info($"Cannot find nearby aetheryte. Skipping sightseeing log #{NextAdventure.RowId}");
+                State = State.Ready;
+                return;
+            }
+
+            ClosestAetheryte = closestAetheryteToSightseeing!.Value;
+
+            Service.Log.Info($"Closest aetheryte is #{ClosestAetheryte.RowId} {ClosestAetheryte.PlaceName}{ClosestAetheryte.AethernetName}");
+
+            if (Svc.ClientState.TerritoryType != territoryType.RowId)
+            {
+                if (!ClosestAetheryte.IsAetheryte) // closest aetheryte is aethernet destination
+                {
+                    var primaryAetheryte = Map.FindPrimaryAetheryte(ClosestAetheryte);
+                    Map.ExecuteTeleport(primaryAetheryte);
+                    return;
+                }
+            }
+
+            // now in correct  territory
+            var distancePlayerToSightseeing = Vector3.Distance(Svc.ClientState.LocalPlayer!.Position, sightseeingPos);
+
+            if (distancePlayerToSightseeing < 5)
+            {
+                if (!NavmeshIPC.PathfindInProgress() && !NavmeshIPC.PathIsRunning())
+                {
+                    if (Svc.Condition[ConditionFlag.Mounted])
+                        Map.ExecuteDismount();
+                    else State = State.Emote;
+                }
+                return;
+            }
+
+            var aetherytePos = Map.AetherytePosition(ClosestAetheryte);
+            var distanceAetheryteToSightseeing = Vector3.Distance(aetherytePos, sightseeingPos);
+            var flyingUnlocked = PlayerState.Instance()->IsAetherCurrentZoneComplete(territoryType.Unknown4);
+            if ( distancePlayerToSightseeing < distanceAetheryteToSightseeing + 20) // closer than any aetheryte, fly straight there
+            {
+                if (!NavmeshIPC.PathfindInProgress() && !NavmeshIPC.PathIsRunning())
+                {
+                    var flying = territoryType.Mount && flyingUnlocked;
+                    if (distanceAetheryteToSightseeing < 50)
+                        flying = false;
+                    if (flying && !Svc.Condition[ConditionFlag.Mounted])
+                    {
+                        Map.ExecuteMount();
+                        return;
+                    }
+                    Service.TaskManager.Enqueue(() => NavmeshIPC.PathfindAndMoveTo(sightseeingPos, flying));
+                }
+                return;
+            }
+
+            var closestAetheryteToPlayer = Map.FindClosestAetheryte(territoryType.RowId, Svc.ClientState.LocalPlayer!.Position)!.Value;
+            var distancePlayerToClosestAetheryte = Vector3.Distance(Svc.ClientState.LocalPlayer!.Position, Map.AetherytePosition(closestAetheryteToPlayer));
+            if (closestAetheryteToPlayer.RowId != ClosestAetheryte.RowId && distancePlayerToSightseeing < distancePlayerToClosestAetheryte + distanceAetheryteToSightseeing + 20)
+            {
+                if (distancePlayerToClosestAetheryte < 8)
+                    Service.TaskManager.Enqueue(() => Service.Lifestream.AethernetTeleport(ClosestAetheryte.AethernetName.Value.Name.ExtractText()));
+                else
+                {
+                    if (!NavmeshIPC.PathfindInProgress() && !NavmeshIPC.PathIsRunning())
+                    {
+                        Service.TaskManager.Enqueue(() => NavmeshIPC.PathfindAndMoveTo(sightseeingPos, false));
+                    }
+                }
+                return;
+            }
+        }
 
         public unsafe void OnUpdate(IFramework framework) //IOrderedEnumerable<(uint idx, Adventure adventure)> adventures)
         {
@@ -30,129 +147,50 @@ namespace TravelAgency
                 return;
             }
 
-            const uint first = 2162688;
-            var adventures = Service.DataManager.GetExcelSheet<Adventure>()!
-                    .Select(adventure => (idx: adventure.RowId - first, adventure))
-                    .Where(adventure => !Service.GameFunctions.HasVistaUnlocked((short)adventure.idx) && adventure.adventure.Available(Service.Weather))
-                    .OrderBy(entry => Service.Config.SortMode switch
-                    {
-                        SortMode.Number => entry.idx,
-                        SortMode.Zone => entry.adventure.Level.Value!.Map.RowId,
-                        _ => throw new ArgumentOutOfRangeException(),
-                    });
-
-            foreach (var (idx, adventure) in adventures)
+            if (NextAdventureIndex >= Adventures.Count())
             {
-
-                var level = adventure.Level.Value;
-                var map = level.Map.Value;
-                var territoryType = map.TerritoryType.Value;
-
-                var pos = new Vector3(level.X, level.Y, level.Z);
-
-                Service.GameGui.OpenMapLocation(adventure);
-
-                var closestAetheryte = Map.FindClosestAetheryte(territoryType.RowId, pos);
-
-                if (closestAetheryte == null) {
-                    Svc.Log.Info($"Could not find aetheryte for sightseeing log #{adventure.RowId}. Skipping");
-                    continue;
-                }
-
-                if (territoryType.RowId != Svc.ClientState.TerritoryType) //tp to main aetheryte
+                Svc.Chat.Print(new XivChatEntry()
                 {
-                    if (!closestAetheryte.Value.IsAetheryte)
+                    Type = XivChatType.Echo,
+                    Message = "[TravelAgency] No more uncollected sightseeing logs available at this time. Turning off auto mode.",
+                });
+                Svc.Log.Info("[TravelAgency] No more uncollected sightseeing logs available at this time. Turning off auto mode.");
+                Service.Config.Active = false;
+                return;
+            }
+
+
+            switch (this.State)
+            {
+                case State.Ready:
+                    NextAdventure = Adventures[NextAdventureIndex];
+                    NextAdventureIndex++;
+
+                    if (!NextAdventure.Available(Service.Weather))
                     {
-                        Service.Log.Info("Closest aetheryte is mini aetheryte.");
-                        var mainAetheryte = Map.FindPrimaryAetheryte(closestAetheryte.Value);
-
-                        if (territoryType.RowId != mainAetheryte.Territory.RowId)
-                        {
-                            Svc.Log.Info($"Teleporting to main aetheryte: {mainAetheryte.PlaceName.Value.Name.ExtractText()}");
-                            Service.TaskManager.Enqueue(() => Telepo.Instance()->Teleport(mainAetheryte.RowId, 0));
-                            Service.TaskManager.Enqueue(() => Svc.ClientState.TerritoryType == mainAetheryte.Territory.RowId);
-                            Service.TaskManager.Enqueue(() => !Svc.Condition[ConditionFlag.BetweenAreas]);
-                            Service.TaskManager.Enqueue(() => Svc.Log.Info($"Successfuly teleported to main aetheryte: {mainAetheryte.PlaceName.Value.Name.ExtractText()}"));
-                        }
-                    }
-                    else
-                    {
-                        Svc.Log.Info($"Teleporting to {territoryType.Name.ExtractText()}");
-                        Service.TaskManager.Enqueue(() => Telepo.Instance()->Teleport(closestAetheryte.Value.RowId, 0));
-                        Service.TaskManager.Enqueue(() => territoryType.RowId == Svc.ClientState.TerritoryType);
-                        Service.TaskManager.Enqueue(() => !Svc.Condition[ConditionFlag.BetweenAreas]);
-                        Service.TaskManager.Enqueue(() => Svc.Log.Info($"Successfuly teleported to {territoryType.Name.ExtractText()}"));
-                    }
-                    return;
-                }
-
-                var distanceToPos = Vector3.Distance(pos, Svc.ClientState.LocalPlayer!.Position);
-                if (!closestAetheryte.Value.IsAetheryte) // use mini aetheryte
-                {
-                    var destinationAethernetPos = Map.AetherytePosition(closestAetheryte!.Value);
-
-                    var startAethernet = Map.FindClosestAetheryte(territoryType.RowId, Svc.ClientState.LocalPlayer.Position);
-                    if (startAethernet?.RowId != closestAetheryte.Value.RowId)
-                    {
-                        var startAethernetPos = Map.AetherytePosition(startAethernet!.Value);
-                        var distanceViaAethernet = Vector3.Distance(Svc.ClientState.LocalPlayer.Position, startAethernetPos) + Vector3.Distance(destinationAethernetPos, pos);
-
-                        if (distanceToPos > distanceViaAethernet + 10)
-                        {
-                            var miniAetheryteName = closestAetheryte?.AethernetName.Value.Name.ExtractText();
-                            Svc.Log.Info($"Teleporting to mini aetheryte #{closestAetheryte?.RowId}: {miniAetheryteName}");
-                            Service.TaskManager.Enqueue(() => Service.Lifestream.AethernetTeleport(miniAetheryteName));
-                            Service.TaskManager.Enqueue(() => Svc.Condition[ConditionFlag.BetweenAreas]);
-                            Service.TaskManager.Enqueue(() => !Svc.Condition[ConditionFlag.BetweenAreas]);
-                            Service.TaskManager.Enqueue(() => Svc.Log.Info($"Successfuly teleported to mini aetheryte: {closestAetheryte.Value.PlaceName.Value.Name.ExtractText()}"));
-                            return;
-                        }
-                    }
-                }
-
-                if (distanceToPos > 1)
-                {
-                    Svc.Log.Info($"Not within 5 distance of ({pos.X}, {pos.Y}, {pos.Z})");
-                    if (!Svc.Condition[ConditionFlag.Mounted] && territoryType.Mount) // not mounted
-                    {
-                        Svc.Log.Info($"Not mounted");
-                        Service.TaskManager.Enqueue(() => ActionManager.Instance()->UseAction(ActionType.GeneralAction, 24)); //ExecuteActionSafe(ActionType.GeneralAction, 24));
-                        Service.TaskManager.Enqueue(() => Svc.Condition[ConditionFlag.Mounted]);
-                        Service.TaskManager.Enqueue(() => Svc.Log.Info("Successfully mounted"));
+                        Svc.Log.Info($"Sightseeing log #{NextAdventure.RowId}: {NextAdventure.Name.ExtractText()} is currently unavailable due to time or weather. Skipping.");
                         return;
                     }
 
-                    //await WaitWhile(() => NavBuildProgress() >= 0, "BuildMesh");
-                    //ErrorIf(!NavIsReady(), "Failed to build navmesh for the zone");
-                    //ErrorIf(!NavPathfindAndMoveTo(dest, fly), "Failed to start pathfinding to destination");
-                    //using var stop = new OnDispose(NavStop);
-                    //await WaitWhile(() => !Game.PlayerInRange(dest, tolerance), "Navigate");
-                    if (!NavmeshIPC.PathfindInProgress() && !NavmeshIPC.PathIsRunning())
-                    {
-                        var flyingUnlocked = PlayerState.Instance()->IsAetherCurrentZoneComplete(territoryType.Unknown4);
-                        Svc.Log.Info($"Navmesh move to: {pos.X}, {pos.Y}, {pos.Z}");
-                        Service.TaskManager.Enqueue(() => NavmeshIPC.PathfindAndMoveTo(pos, fly: territoryType.Mount && flyingUnlocked));
-                        Service.TaskManager.Enqueue(() => NavmeshIPC.PathIsRunning());
-                        Service.TaskManager.Enqueue(() => !NavmeshIPC.PathIsRunning());
-                    }
-                    return;
-                }
+                    Svc.Log.Info($"Next sightseeing log is #{NextAdventure.RowId}: {NextAdventure.Name.ExtractText()}");
 
-                if (Svc.Condition[ConditionFlag.Mounted]) // dismount
-                {
-                    Service.TaskManager.Enqueue(() => ActionManager.Instance()->UseAction(ActionType.GeneralAction, 23)); //ExecuteActionSafe(ActionType.GeneralAction, 24));
-                    Service.TaskManager.Enqueue(() => !Svc.Condition[ConditionFlag.Mounted]);
-                    Service.TaskManager.Enqueue(() => Svc.Condition[ConditionFlag.NormalConditions]);
-                    return;
-                }
+                    Service.GameGui.OpenMapLocation(NextAdventure);
 
-                Svc.Log.Info($"Executing emote {adventure.Emote.Value.Name.ExtractText()}");
-                Service.TaskManager.Enqueue(() => Service.ChatFunctions.UseEmote(adventure.Emote.Value.RowId));
-                Service.TaskManager.Enqueue(() => Svc.Condition[ConditionFlag.Emoting]);
-                Service.TaskManager.Enqueue(() => !Svc.Condition[ConditionFlag.Emoting]);
+                    State = State.GoToSightseeingPoint;
+                    break;
+                case State.GoToSightseeingPoint:
+                    GoToSightseeingPoint();
+                    break;
+                case State.Emote:
+                    Svc.Log.Info($"Executing emote {NextAdventure.Emote.Value.Name.ExtractText()}");
+                    Service.TaskManager.Enqueue(() => Service.ChatFunctions.UseEmote(NextAdventure.Emote.Value.RowId));
+                    Service.TaskManager.Enqueue(() => Svc.Condition[ConditionFlag.Emoting]);
+                    Service.TaskManager.Enqueue(() => !Svc.Condition[ConditionFlag.Emoting]);
+                    State = State.Ready;
+                    break;
+                default:
+                    break;
             }
-
-            Service.Config.Active = false;
         }
     }
 }
