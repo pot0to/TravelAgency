@@ -24,6 +24,7 @@ namespace TravelAgency {
             Service.TaskManager = new();
             Service.TaskManager.DefaultConfiguration.AbortOnTimeout = true;
             Service.TaskManager.DefaultConfiguration.TimeLimitMS = 10000; // 10s
+            Service.TaskManager.DefaultConfiguration.ShowDebug = true;
             Service.Config = Service.Interface.GetPluginConfig() as Configuration ?? new Configuration();
             Service.Config.Initialise(this);
             //Service.Navmesh = new();

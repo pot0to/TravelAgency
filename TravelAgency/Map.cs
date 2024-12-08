@@ -52,15 +52,9 @@ namespace TravelAgency
         {
             // stolen from HTA, uses pixel coordinates
             var level = a.Level[0].ValueNullable;
-            Svc.Log.Info($"Found {a.Level.Count} levels for aetheryte {a.RowId}: {a.Level}");
             if (level != null)
             {
-                Svc.Log.Info($"Level: {level.Value.X}, {level.Value.Y}, {level.Value.Z}");
                 return new(level.Value.X, level.Value.Y, level.Value.Z);
-            }
-            else
-            {
-                Svc.Log.Info($"Level is null");
             }
             var marker = Service.LuminaSheetSubrow<MapMarker>()!.Flatten().FirstOrNull(m => m.DataType == 3 && m.DataKey.RowId == a.RowId)
                 ?? Service.LuminaSheetSubrow<MapMarker>()!.Flatten().First(m => m.DataType == 4 && m.DataKey.RowId == a.AethernetName.RowId);

@@ -77,14 +77,17 @@ namespace TravelAgency
 
             ClosestAetheryte = closestAetheryteToSightseeing!.Value;
 
-            Service.Log.Info($"Closest aetheryte is #{ClosestAetheryte.RowId} {ClosestAetheryte.PlaceName}{ClosestAetheryte.AethernetName}");
-
             if (Svc.ClientState.TerritoryType != territoryType.RowId)
             {
                 if (!ClosestAetheryte.IsAetheryte) // closest aetheryte is aethernet destination
                 {
                     var primaryAetheryte = Map.FindPrimaryAetheryte(ClosestAetheryte);
                     Map.ExecuteTeleport(primaryAetheryte);
+                    return;
+                }
+                else
+                {
+                    Map.ExecuteTeleport(ClosestAetheryte);
                     return;
                 }
             }
